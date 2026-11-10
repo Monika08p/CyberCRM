@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if customer else 'New' }} Customer &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}{{ 'Edit' if customer else 'New' }} Customer{% endblock %}
+{% block breadcrumb %}Customers / {{ 'Edit' if customer else 'New' }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('customers.list_customers') }}" class="btn-c btn-sm-c mb-14"><i class="fa-solid fa-arrow-left"></i> Back</a>
+
+<div class="panel" style="max-width: 700px;">
+  <div class="panel-header"><span><i class="fa-solid fa-user-pen text-accent"></i> {{ 'Edit' if customer else 'New' }} Customer</span></div>
+  <div class="panel-body">
+    <form method="POST">
+      <div class="form-row-c">
+        <div>
+          <label class="form-label-c">Name *</label>
+          <input type="text" name="name" class="form-control-c" required value="{{ customer.name if customer else '' }}">
+        </div>
+        <div>
+          <label class="form-label-c">Company</label>
+          <input type="text" name="company" class="form-control-c" value="{{ customer.company if customer else '' }}">
+        </div>
+      </div>
+      <div class="form-row-c">
+        <div>
+          <label class="form-label-c">Email</label>
+          <input type="email" name="email" class="form-control-c" value="{{ customer.email if customer else '' }}">
+        </div>
+        <div>
+          <label class="form-label-c">Phone</label>
+          <input type="text" name="phone" class="form-control-c" value="{{ customer.phone if customer else '' }}">
+        </div>
+      </div>
+      <div class="form-group-c">
+        <label class="form-label-c">Address</label>
+        <input type="text" name="address" class="form-control-c" value="{{ customer.address if customer else '' }}">
+      </div>
+      <div class="form-group-c">
+        <label class="form-label-c">Notes</label>
+        <textarea name="notes" class="form-control-c" rows="3">{{ customer.notes if customer else '' }}</textarea>
+      </div>
+      <button type="submit" class="btn-c btn-primary-c"><i class="fa-solid fa-floppy-disk"></i> Save Customer</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

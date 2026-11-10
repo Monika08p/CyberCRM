@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Audit Integrity &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Audit Integrity{% endblock %}
+{% block breadcrumb %}Security Operations / Audit Integrity{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-link text-accent"></i> Audit Integrity</h2>
+</div>
+
+<div class="panel mb-14">
+  <div class="panel-body">
+    <div class="risk-overview" style="align-items: stretch;">
+      <div style="flex:1; min-width:220px;">
+        <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="kpi-card">
+            <div class="kpi-value">{{ summary.total }}</div>
+            <div class="kpi-label">Total Audit Events</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" style="color: var(--success);">{{ summary.verified }}</div>
+            <div class="kpi-label">Verified Events</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" style="color: {{ 'var(--critical)' if summary.tampered else 'var(--text)' }};">{{ summary.tampered }}</div>
+            <div class="kpi-label">Tampered Events</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1; min-width:220px; text-align:center; border-left:1px solid var(--border); padding-left:20px;">
+        {% if summary.chain_status == 'VALID' %}
+          <i class="fa-solid fa-circle-check" style="font-size:40px; color: var(--success);"></i>
+          <div style="font-weight:800; font-size:18px; color: var(--success); margin-top:8px;">CHAIN VALID</div>
+        {% else %}
+          <i class="fa-solid fa-triangle-exclamation" style="font-size:40px; color: var(--critical);"></i>
+          <div style="font-weight:800; font-size:18px; color: var(--critical); margin-top:8px;">CHAIN COMPROMISED</div>
+          <div class="text-muted-c" style="font-size:12px; margin-top:4px;">
+            First affected event: <strong>#{{ summary.first_tampered_id }}</strong>
+          </div>
+        {% endif %}
+        <div class="text-muted-c" style="font-size:11.5px; margin-top:10px;">
+          Last verified: {{ summary.checked_at.strftime('%d-%m-%Y %H:%M') }}
+        </div>
+      </div>
+    </div>
+    {% if summary.tampered %}
+    <div class="flash-c flash-danger mt-14">
+      <span><i class="fa-solid fa-triangle-exclamation"></i> SECURITY ALERT: Audit log tampering detected in
+      {{ summary.tampered }} event(s), starting at event #{{ summary.first_tampered_id }}. Investigate immediately.</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel mb-14">
+  <div class="panel-header">
+    <span><i class="fa-solid fa-box-archive text-accent"></i> Retention &amp; Backup</span>
+    <span class="badge-pill badge-neutral">Audit Retention: {{ retention_days }} days</span>
+  </div>
+  <div class="panel-body">
+    <div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom:14px;">
+      <div class="kpi-card"><div class="kpi-value">{{ summary.total }}</div><div class="kpi-label">Total Audit Events</div></div>
+      <div class="kpi-card"><div class="kpi-value">{{ backup.archived_events }}</div><div class="kpi-label">Archived Events</div></div>
+      <div class="kpi-card">
+        <div class="kpi-value" style="font-size:15px;">{{ backup.last_backup.strftime('%d-%m-%Y %H:%M') ~ ' UTC' if backup.last_backup else 'Never' }}</div>
+        <div class="kpi-label">Last Backup</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" style="font-size:18px; color: {{ 'var(--success)' if backup.status=='VALID' else 'var(--critical)' if backup.status=='COMPROMISED' else 'var(--text-muted)' }};">{{ 'NOT CREATED' if backup.status=='EMPTY' else backup.status }}</div>
+        <div class="kpi-label">Backup Status</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value" style="font-size:18px; color: {{ 'var(--success)' if summary.chain_status=='VALID' else 'var(--critical)' }};">{{ summary.chain_status }}</div>
+        <div class="kpi-label">Audit Chain</div>
+      </div>
+    </div>
+
+    {% if backup.not_yet_archived %}
+    <div class="flash-c flash-warning"><span><i class="fa-solid fa-circle-info"></i> {{ backup.not_yet_archived }} audit event(s) are not archived yet &mdash; click <strong>Create Backup</strong>.</span></div>
+    {% endif %}
+    {% if backup.missing_in_db %}
+    <div class="flash-c flash-danger"><span><i class="fa-solid fa-triangle-exclamation"></i> {{ backup.missing_in_db }} archived event(s) are missing from the database. Recover them with <code>python restore_audit.py</code>.</span></div>
+    {% endif %}
+    {% if backup.status == 'COMPROMISED' %}
+    <div class="flash-c flash-danger"><span><i class="fa-solid fa-triangle-exclamation"></i> Backup integrity check failed:
+      {% for f in backup.files if f.issues %}{{ f.name }} &mdash; {{ f.issues|join('; ') }}{% if not loop.last %} | {% endif %}{% endfor %}</span></div>
+    {% endif %}
+
+    <div class="flash-c {{ 'flash-warning' if backup.storage.is_local else 'flash-info' }}">
+      <span><i class="fa-solid fa-hard-drive"></i> <strong>Archive storage:</strong> {{ backup.storage.kind }} &mdash; <code>{{ backup.storage.path }}</code>.
+      {% if backup.storage.is_local %}A local folder does <strong>not</strong> protect against anyone with full access to this machine. Point <code>AUDIT_BACKUP_DIR</code> at restricted/external storage (see README &sect;13).{% else %}Access to this location must be restricted and ideally immutable (WORM).{% endif %}
+      {% if not backup.storage.writable %}<strong> The archive folder is NOT writable.</strong>{% endif %}</span>
+    </div>
+    {% if backup.differs_from_db %}
+    <div class="flash-c flash-danger"><span><i class="fa-solid fa-triangle-exclamation"></i> {{ backup.differs_from_db }} event(s) differ between the database and the archive &mdash; one of them was altered. Investigate before restoring.</span></div>
+    {% endif %}
+
+    <div class="btn-group-c">
+      <form method="POST" action="{{ url_for('security.audit_verify') }}" style="display:inline;">
+        <input type="hidden" name="what" value="chain">
+        <button class="btn-c btn-sm-c"><i class="fa-solid fa-link"></i> Verify Audit Chain</button>
+      </form>
+      <form method="POST" action="{{ url_for('security.audit_verify') }}" style="display:inline;">
+        <input type="hidden" name="what" value="backup">
+        <button class="btn-c btn-sm-c"><i class="fa-solid fa-shield-halved"></i> Verify Backup</button>
+      </form>
+      <form method="POST" action="{{ url_for('security.audit_backup') }}" style="display:inline;">
+        <button class="btn-c btn-sm-c btn-primary-c"><i class="fa-solid fa-floppy-disk"></i> Create Backup</button>
+      </form>
+      <button type="button" class="btn-c btn-sm-c" data-modal-open="exportEvidenceModal"><i class="fa-solid fa-file-export"></i> Export Evidence</button>
+    </div>
+    <p class="text-muted-c" style="font-size:11.5px; margin:10px 0 0;">
+      Audit events are append-only and copied to a separate archive (<code>audit_backups/</code>).
+      Nothing is auto-deleted after the {{ retention_days }}-day retention period in this version
+      ({{ backup.past_retention }} event(s) currently older than the period).
+      {% if evidence_files %}Latest evidence:
+        {% for ev in evidence_files[:3] %}<a href="{{ url_for('security.audit_download_evidence', filename=ev.filename) }}">{{ ev.filename }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="modal-backdrop-c" id="exportEvidenceModal">
+  <div class="modal-c">
+    <div class="modal-header-c">
+      <h3><i class="fa-solid fa-file-export text-accent"></i> Export Audit Evidence</h3>
+      <button class="icon-btn" data-modal-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="POST" action="{{ url_for('security.audit_export_evidence') }}">
+      <div class="modal-body-c">
+        <div class="form-row-c">
+          <div><label class="form-label-c">From date</label><input type="date" name="date_from" class="form-control-c"></div>
+          <div><label class="form-label-c">To date</label><input type="date" name="date_to" class="form-control-c"></div>
+        </div>
+        <div class="form-row-c">
+          <div><label class="form-label-c">User</label>
+            <select name="user_id" class="form-control-c"><option value="">All users</option>
+              {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+            </select></div>
+          <div><label class="form-label-c">Action</label>
+            <select name="action" class="form-control-c"><option value="">All actions</option>
+              {% for a in actions %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
+            </select></div>
+        </div>
+        <div class="form-group-c"><label class="form-label-c">Target type</label>
+          <select name="target_type" class="form-control-c"><option value="">All target types</option>
+            {% for t in target_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+          </select></div>
+        <p class="text-muted-c" style="font-size:11.5px; margin:0;">
+          Creates a JSON file with chain-of-custody metadata plus a SHA-256 checksum file.
+          It preserves traceability and integrity; it does not by itself guarantee legal admissibility.
+        </p>
+      </div>
+      <div class="modal-footer-c">
+        <button type="button" class="btn-c" data-modal-close>Cancel</button>
+        <button type="submit" class="btn-c btn-primary-c"><i class="fa-solid fa-file-export"></i> Export</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header"><span><i class="fa-solid fa-list-check text-accent"></i> Recent Audit Events (Hash Chain)</span></div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>#</th><th>User</th><th>Action</th><th>Details</th><th>Risk</th><th>Timestamp</th><th>Hash (short)</th><th>Chain</th><th></th></tr></thead>
+        <tbody>
+        {% for e in events %}
+          <tr>
+            <td>{{ e.id }}</td>
+            <td>{{ e.actor.username if e.actor else 'system' }}</td>
+            <td><span class="action-chip">{{ e.action }}</span></td>
+            <td class="small" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ e.details or '-' }}</td>
+            <td><span class="badge-pill badge-{{ 'critical' if e.risk_level=='CRITICAL' else 'high' if e.risk_level=='HIGH' else 'medium' if e.risk_level=='MEDIUM' else 'low' if e.risk_level=='LOW' else 'neutral' }}">{{ e.risk_level }}</span></td>
+            <td class="text-muted-c">{{ e.timestamp.strftime('%m-%d %H:%M:%S') }}</td>
+            <td class="text-muted-c small" title="{{ e.current_hash }}">{{ e.current_hash[:10] }}&hellip;</td>
+            <td>
+              {% if e.id in summary.tampered_ids %}
+                <span class="badge-pill badge-critical"><i class="fa-solid fa-triangle-exclamation"></i> Broken</span>
+              {% else %}
+                <span class="badge-pill badge-success"><i class="fa-solid fa-check"></i> OK</span>
+              {% endif %}
+            </td>
+            <td>
+              <form method="POST" action="{{ url_for('security.audit_delete_blocked', event_id=e.id) }}"
+                    onsubmit="return confirm('Security test: audit events can never be deleted. This simulates a delete attempt - nothing is removed, but a Critical alert is raised against your account. Continue?');">
+                <button type="submit" class="btn-c btn-sm-c btn-ghost-c" title="Simulate delete attempt (always blocked &amp; flagged)">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9"><div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No audit events recorded yet</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

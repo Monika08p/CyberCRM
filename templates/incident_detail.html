@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ incident.incident_code }} &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Incident {{ incident.incident_code }}{% endblock %}
+{% block breadcrumb %}Security Operations / Incidents / {{ incident.incident_code }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('security.incidents') }}" class="btn-c btn-sm-c mb-14"><i class="fa-solid fa-arrow-left"></i> Back to Incidents</a>
+
+{% if self_investigation %}
+<div class="panel mb-14" style="border-color: var(--critical);">
+  <div class="panel-body" style="display:flex; gap:12px; align-items:flex-start;">
+    <i class="fa-solid fa-user-lock" style="color: var(--critical); font-size:20px; margin-top:2px;"></i>
+    <div>
+      <div style="font-weight:700; color: var(--critical);">SELF-INVESTIGATION RESTRICTED</div>
+      <p class="text-muted-c" style="margin:4px 0 0; font-size:12.5px;">
+        This incident involves your own account. You cannot independently investigate or resolve it —
+        another administrator must review and respond.
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2 mb-14">
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-circle-info text-accent"></i> Incident Summary</span></div>
+    <div class="panel-body">
+      <div class="stack-gap">
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;"><span class="text-muted-c">Incident ID</span><span>{{ incident.incident_code }}</span></div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;">
+          <span class="text-muted-c">Suspected User</span>
+          <a href="{{ url_for('admin.investigate_user', user_id=incident.user_id) }}">
+            {{ incident.suspect.username }}
+            {% if incident.suspect.is_privileged() %}<span class="badge-pill badge-critical" style="margin-left:4px;"><i class="fa-solid fa-user-shield"></i> privileged</span>{% endif %}
+          </a>
+        </div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;"><span class="text-muted-c">Severity</span><span class="badge-pill badge-{{ incident.severity|lower }}">{{ incident.severity }}</span></div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;"><span class="text-muted-c">Risk Score</span><span>{{ incident.risk_score }}</span></div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;"><span class="text-muted-c">Status</span><span class="badge-pill badge-neutral">{{ incident.status.replace('_',' ') }}</span></div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;"><span class="text-muted-c">Investigator</span><span>{{ incident.investigator.username if incident.investigator else 'Unassigned' }}</span></div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;"><span class="text-muted-c">Created</span><span>{{ incident.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+        <div class="flex-between"><span class="text-muted-c">Resolved</span><span>{{ incident.resolved_at.strftime('%Y-%m-%d %H:%M') if incident.resolved_at else '-' }}</span></div>
+      </div>
+      {% if incident.resolution_notes %}
+      <div class="mt-14" style="border-top:1px solid var(--border); padding-top:10px;">
+        <div class="text-muted-c" style="font-size:11.5px; font-weight:700; margin-bottom:4px;">INVESTIGATION NOTES</div>
+        <pre style="white-space:pre-wrap; font-family:inherit; font-size:12.5px; margin:0;">{{ incident.resolution_notes }}</pre>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-triangle-exclamation" style="color: var(--warning);"></i> Triggered Rules / Related Alerts</span></div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>Alert Type</th><th>Severity</th><th>Status</th><th>When</th></tr></thead>
+          <tbody>
+          {% for a in related_alerts %}
+            <tr>
+              <td>{{ a.alert_type }}</td>
+              <td><span class="badge-pill badge-{{ a.level|lower }}">{{ a.level }}</span></td>
+              <td>{% if a.resolved %}<span class="badge-pill badge-success">Resolved</span>{% else %}<span class="badge-pill badge-neutral">Open</span>{% endif %}</td>
+              <td class="text-muted-c">{{ a.timestamp.strftime('%m-%d %H:%M') }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No related alerts</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel mb-14">
+  <div class="panel-header"><span><i class="fa-solid fa-timeline text-accent"></i> Event Timeline</span></div>
+  <div class="panel-body p-0">
+    <div class="timeline" style="padding: 6px 16px;">
+      {% for a in related_alerts %}
+      <div class="timeline-item">
+        <div class="timeline-dot {{ 'critical' if a.level=='Critical' else 'high' if a.level=='High' else 'med' if a.level=='Medium' else '' }}"></div>
+        <div class="timeline-content">
+          <div class="timeline-top"><span class="timeline-user">{{ a.timestamp.strftime('%H:%M') }}</span> <span class="timeline-action">{{ a.alert_type }}</span></div>
+          <div class="timeline-time">{{ a.message }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No events yet</div></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="panel mb-14">
+  <div class="panel-header"><span><i class="fa-solid fa-gavel text-accent"></i> Response Actions</span></div>
+  <div class="panel-body">
+    {% if not self_investigation %}
+    <div class="btn-group-c mb-14" style="flex-wrap:wrap;">
+      <form method="POST" action="{{ url_for('security.incident_action', incident_id=incident.id) }}" style="display:inline;">
+        <input type="hidden" name="action_type" value="under_investigation">
+        <button class="btn-c btn-sm-c"><i class="fa-solid fa-magnifying-glass"></i> Mark Under Investigation</button>
+      </form>
+      <form method="POST" action="{{ url_for('security.incident_action', incident_id=incident.id) }}" style="display:inline;">
+        <input type="hidden" name="action_type" value="contained">
+        <button class="btn-c btn-sm-c"><i class="fa-solid fa-lock"></i> Mark Contained</button>
+      </form>
+      <form method="POST" action="{{ url_for('security.incident_action', incident_id=incident.id) }}" style="display:inline;" onsubmit="return confirm('Resolve this incident?');">
+        <input type="hidden" name="action_type" value="resolve">
+        <button class="btn-c btn-sm-c btn-success-c"><i class="fa-solid fa-check"></i> Resolve</button>
+      </form>
+      <form method="POST" action="{{ url_for('security.incident_action', incident_id=incident.id) }}" style="display:inline;">
+        <input type="hidden" name="action_type" value="false_positive">
+        <button class="btn-c btn-sm-c btn-ghost-c"><i class="fa-solid fa-ban"></i> False Positive</button>
+      </form>
+    </div>
+
+    <div class="btn-group-c mb-14" style="flex-wrap:wrap;">
+      <button class="btn-c {{ 'btn-danger-c' if incident.suspect.is_active_account else 'btn-success-c' }}"
+              data-toggle-active="{{ incident.user_id }}" data-next="{{ request.path }}">
+        <i class="fa-solid fa-power-off"></i> {{ 'Suspend User' if incident.suspect.is_active_account else 'Activate User' }}
+      </button>
+      <button class="btn-c" data-revoke-session="{{ incident.user_id }}" data-next="{{ request.path }}">
+        <i class="fa-solid fa-right-from-bracket"></i> Revoke Session
+      </button>
+      {% if incident.suspect.is_privileged() %}
+      <button class="btn-c btn-danger-c" data-disable-privileged="{{ incident.user_id }}" data-next="{{ request.path }}">
+        <i class="fa-solid fa-user-shield"></i> Disable Privileged Access
+      </button>
+      {% endif %}
+    </div>
+
+    <form method="POST" action="{{ url_for('security.incident_action', incident_id=incident.id) }}">
+      <input type="hidden" name="action_type" value="note">
+      <div class="form-group-c">
+        <label class="form-label-c">Add Investigation Note</label>
+        <textarea name="notes" class="form-control-c" rows="2" placeholder="Findings, evidence, reasoning..."></textarea>
+      </div>
+      <button type="submit" class="btn-c btn-sm-c"><i class="fa-solid fa-note-sticky"></i> Add Note</button>
+    </form>
+    {% else %}
+    <p class="text-muted-c" style="font-size:12.5px;">Response actions are disabled while self-investigation is restricted.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

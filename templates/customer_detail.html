@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }} &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Customer Detail{% endblock %}
+{% block breadcrumb %}Customers / {{ customer.name }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('customers.list_customers') }}" class="btn-c btn-sm-c mb-14"><i class="fa-solid fa-arrow-left"></i> Back to Customers</a>
+
+<div class="panel">
+  <div class="panel-header">
+    <span><i class="fa-solid fa-user-tie text-accent"></i> {{ customer.name }}</span>
+    <div class="btn-group-c">
+      <a href="{{ url_for('customers.edit_customer', customer_id=customer.id) }}" class="btn-c btn-sm-c"><i class="fa-solid fa-pen"></i> Edit</a>
+      <form method="POST" action="{{ url_for('customers.delete_customer', customer_id=customer.id) }}" onsubmit="return confirm('Delete this customer?');">
+        <button class="btn-c btn-sm-c btn-danger-c"><i class="fa-solid fa-trash"></i> Delete</button>
+      </form>
+    </div>
+  </div>
+  <div class="panel-body">
+    <div class="stack-gap">
+      <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <span class="text-muted-c">Company</span><span>{{ customer.company or '-' }}</span>
+      </div>
+      <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <span class="text-muted-c">Email</span><span>{{ customer.email or '-' }}</span>
+      </div>
+      <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <span class="text-muted-c">Phone</span><span>{{ customer.phone or '-' }}</span>
+      </div>
+      <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <span class="text-muted-c">Address</span><span>{{ customer.address or '-' }}</span>
+      </div>
+      <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <span class="text-muted-c">Notes</span><span>{{ customer.notes or '-' }}</span>
+      </div>
+      <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <span class="text-muted-c">Created</span><span>{{ customer.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      </div>
+      <div class="flex-between">
+        <span class="text-muted-c">Updated</span><span>{{ customer.updated_at.strftime('%Y-%m-%d %H:%M') }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

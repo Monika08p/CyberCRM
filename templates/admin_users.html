@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Users &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}User Management{% endblock %}
+{% block breadcrumb %}Admin / Users{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-users text-accent"></i> User Management</h2>
+  <div class="flex-row">
+    <input type="text" id="userSearchInput" class="form-control-c" placeholder="Search users..." style="width:220px;">
+    <button class="btn-c btn-primary-c" data-modal-open="addUserModal"><i class="fa-solid fa-user-plus"></i> Add User</button>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c" data-sortable id="usersTable">
+        <thead>
+          <tr>
+            <th data-sort-key>Username</th>
+            <th>Email</th>
+            <th data-sort-key>Role</th>
+            <th data-sort-key>Status</th>
+            <th data-sort-key>Risk Score</th>
+            <th data-sort-key>Last Login</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for u in users %}
+          <tr class="user-row" data-username="{{ u.username|lower }} {{ u.email|lower }}">
+            <td>{{ u.username }}</td>
+            <td class="small">{{ u.email }}</td>
+            <td><span class="badge-pill {{ 'badge-critical' if u.is_privileged() else 'badge-neutral' }}">{% if u.is_privileged() %}<i class="fa-solid fa-user-shield"></i>{% endif %} {{ u.role }}</span></td>
+            <td>{% if u.is_active_account %}<span class="badge-pill badge-success">Active</span>{% else %}<span class="badge-pill badge-critical">Suspended</span>{% endif %}</td>
+            <td data-value="{{ u.live_risk_score }}">
+              {{ u.live_risk_score }} <span class="badge-pill badge-{{ u.risk_level()|lower }}">{{ u.risk_level() }}</span>
+              {% if u.is_suspicious %}<i class="fa-solid fa-user-secret" style="color: var(--danger); margin-left:4px;" title="Flagged suspicious"></i>{% endif %}
+            </td>
+            <td class="text-muted-c" data-value="{{ u.last_login.timestamp() if u.last_login else 0 }}">
+              {{ u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else 'Never' }}
+            </td>
+            <td>
+              <div class="btn-group-c">
+                <a href="{{ url_for('admin.investigate_user', user_id=u.id) }}" class="btn-c btn-sm-c btn-ghost-c" title="Investigate"><i class="fa-solid fa-magnifying-glass"></i></a>
+                <button class="btn-c btn-sm-c btn-ghost-c" title="View"
+                        data-view-user='{{ {"username": u.username, "email": u.email, "role": u.role, "live_risk_score": u.live_risk_score, "risk_level": u.risk_level(), "is_suspicious": u.is_suspicious, "is_active": u.is_active_account, "last_login": (u.last_login.strftime('%Y-%m-%d %H:%M') if u.last_login else none)}|tojson|safe }}'>
+                  <i class="fa-solid fa-eye"></i>
+                </button>
+                <button class="btn-c btn-sm-c btn-ghost-c" title="Reset Risk Score" data-reset-score="{{ u.id }}"><i class="fa-solid fa-rotate-left"></i></button>
+                {% if u.id != current_user.id %}
+                <button class="btn-c btn-sm-c {{ 'btn-danger-c' if u.is_active_account else 'btn-success-c' }}" title="{{ 'Suspend' if u.is_active_account else 'Activate' }}" data-toggle-active="{{ u.id }}">
+                  <i class="fa-solid fa-power-off"></i>
+                </button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-users"></i><div class="es-title">No users found</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-backdrop-c" id="addUserModal">
+  <div class="modal-c modal-sm">
+    <div class="modal-header-c">
+      <h3><i class="fa-solid fa-user-plus text-accent"></i> Add User</h3>
+      <button class="icon-btn" data-modal-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="addUserForm" action="{{ url_for('admin.new_user') }}" method="POST" data-ajax-submit>
+      <div class="modal-body-c">
+        <div class="form-group-c">
+          <label class="form-label-c">Username *</label>
+          <input type="text" name="username" class="form-control-c" required>
+        </div>
+        <div class="form-group-c">
+          <label class="form-label-c">Email *</label>
+          <input type="email" name="email" class="form-control-c" required>
+        </div>
+        <div class="form-group-c">
+          <label class="form-label-c">Password *</label>
+          <input type="password" name="password" class="form-control-c" required minlength="6">
+        </div>
+        <div class="form-group-c">
+          <label class="form-label-c">Role</label>
+          <select name="role" class="form-control-c">
+            <option value="employee" selected>employee</option>
+            <option value="admin">admin (privileged)</option>
+          </select>
+          <p class="text-muted-c" style="font-size:11px; margin-top:6px;">
+            Creating another admin account is a privileged action and is monitored:
+            it raises a Critical rule-violation alert against your own account.
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer-c">
+        <button type="button" class="btn-c" data-modal-close>Cancel</button>
+        <button type="submit" class="btn-c btn-primary-c"><i class="fa-solid fa-floppy-disk"></i> Create User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- View User Modal -->
+<div class="modal-backdrop-c" id="viewUserModal">
+  <div class="modal-c modal-sm">
+    <div class="modal-header-c">
+      <h3><i class="fa-solid fa-user text-accent"></i> User Details</h3>
+      <button class="icon-btn" data-modal-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body-c" id="viewUserBody"></div>
+    <div class="modal-footer-c">
+      <button type="button" class="btn-c" data-modal-close>Close</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+document.getElementById('userSearchInput').addEventListener('input', function (e) {
+  const q = e.target.value.toLowerCase();
+  document.querySelectorAll('#usersTable .user-row').forEach(function (row) {
+    row.style.display = row.getAttribute('data-username').includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

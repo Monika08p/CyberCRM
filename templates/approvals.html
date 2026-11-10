@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Approvals &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Approvals{% endblock %}
+{% block breadcrumb %}Security Operations / Dual Authorization{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-user-check text-accent"></i> Dual-Authorization Approvals</h2>
+</div>
+<p class="text-muted-c" style="margin-top:-8px; margin-bottom:16px; font-size:12.5px; max-width:760px;">
+  Critical actions on privileged accounts (such as suspending an admin) require a second,
+  different administrator to review and approve. The admin who requested the action cannot
+  approve their own request.
+</p>
+
+<div class="panel mb-14">
+  <div class="panel-header"><span><i class="fa-solid fa-hourglass-half" style="color: var(--warning);"></i> Pending Requests</span></div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Action</th><th>Target</th><th>Requested By</th><th>When</th><th>Decision</th></tr></thead>
+        <tbody>
+        {% for req in pending %}
+          <tr>
+            <td><span class="action-chip">{{ req.action_type.replace('_',' ') }}</span></td>
+            <td>{{ req.target_user.username }} <span class="badge-pill badge-critical" style="margin-left:4px;"><i class="fa-solid fa-user-shield"></i></span></td>
+            <td>{{ req.requested_by.username }}</td>
+            <td class="text-muted-c">{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+              {% if req.requested_by_id == current_user.id %}
+                <span class="text-muted-c small">Awaiting another admin</span>
+              {% else %}
+                <div class="btn-group-c">
+                  <form method="POST" action="{{ url_for('security.decide_approval', approval_id=req.id) }}" style="display:inline;" onsubmit="return confirm('Approve this critical action?');">
+                    <input type="hidden" name="decision" value="approve">
+                    <button class="btn-c btn-sm-c btn-success-c"><i class="fa-solid fa-check"></i> Approve</button>
+                  </form>
+                  <form method="POST" action="{{ url_for('security.decide_approval', approval_id=req.id) }}" style="display:inline;">
+                    <input type="hidden" name="decision" value="reject">
+                    <button class="btn-c btn-sm-c btn-danger-c"><i class="fa-solid fa-xmark"></i> Reject</button>
+                  </form>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No pending approval requests</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header"><span><i class="fa-solid fa-clock-rotate-left text-accent"></i> Decision History</span></div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Action</th><th>Target</th><th>Requested By</th><th>Decided By</th><th>Status</th><th>When</th></tr></thead>
+        <tbody>
+        {% for req in history %}
+          <tr>
+            <td><span class="action-chip">{{ req.action_type.replace('_',' ') }}</span></td>
+            <td>{{ req.target_user.username }}</td>
+            <td>{{ req.requested_by.username }}</td>
+            <td>{{ req.decided_by.username if req.decided_by else '-' }}</td>
+            <td><span class="badge-pill {{ 'badge-success' if req.status=='APPROVED' else 'badge-neutral' }}">{{ req.status }}</span></td>
+            <td class="text-muted-c">{{ req.decided_at.strftime('%Y-%m-%d %H:%M') if req.decided_at else '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6"><div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No decisions yet</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

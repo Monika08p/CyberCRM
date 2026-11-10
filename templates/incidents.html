@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Security Incidents &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Security Incidents{% endblock %}
+{% block breadcrumb %}Security Operations / Incidents{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-fire" style="color: var(--critical);"></i> Security Incidents</h2>
+</div>
+
+<div class="panel mb-14">
+  <div class="panel-body">
+    <div class="btn-group-c" style="flex-wrap:wrap;">
+      <a href="{{ url_for('security.incidents') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if not status_filter }}">All Statuses</a>
+      <a href="{{ url_for('security.incidents', status='OPEN') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if status_filter=='OPEN' }}">Open</a>
+      <a href="{{ url_for('security.incidents', status='UNDER_INVESTIGATION') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if status_filter=='UNDER_INVESTIGATION' }}">Under Investigation</a>
+      <a href="{{ url_for('security.incidents', status='CONTAINED') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if status_filter=='CONTAINED' }}">Contained</a>
+      <a href="{{ url_for('security.incidents', status='RESOLVED') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if status_filter=='RESOLVED' }}">Resolved</a>
+      <a href="{{ url_for('security.incidents', status='FALSE_POSITIVE') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if status_filter=='FALSE_POSITIVE' }}">False Positive</a>
+      <span style="width:1px; background:var(--border); align-self:stretch;"></span>
+      <a href="{{ url_for('security.incidents', severity='Critical') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if severity_filter=='Critical' }}">Critical</a>
+      <a href="{{ url_for('security.incidents', severity='High') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if severity_filter=='High' }}">High</a>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Incident</th><th>Suspected User</th><th>Severity</th><th>Risk Score</th><th>Status</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+        {% for inc in incidents %}
+          <tr>
+            <td>{{ inc.incident_code }}<br><span class="text-muted-c small">{{ inc.title }}</span></td>
+            <td>
+              {{ inc.suspect.username }}
+              {% if inc.suspect.is_privileged() %}<span class="badge-pill badge-critical" style="margin-left:4px;"><i class="fa-solid fa-user-shield"></i></span>{% endif %}
+            </td>
+            <td><span class="badge-pill badge-{{ inc.severity|lower }}">{{ inc.severity }}</span></td>
+            <td>{{ inc.risk_score }}</td>
+            <td><span class="badge-pill badge-neutral">{{ inc.status.replace('_',' ') }}</span></td>
+            <td class="text-muted-c">{{ inc.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td><a href="{{ url_for('security.incident_detail', incident_id=inc.id) }}" class="btn-c btn-sm-c btn-ghost-c">Open</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No security incidents</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

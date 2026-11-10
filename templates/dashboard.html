@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Dashboard &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}Overview of your activity{% endblock %}
+{% block content %}
+
+<div class="kpi-grid mb-14">
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div class="kpi-icon"><i class="fa-solid fa-address-book"></i></div>
+    </div>
+    <div class="kpi-value">{{ total_customers }}</div>
+    <div class="kpi-label">Total Customer Records</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div class="kpi-icon {{ 'danger' if current_user.risk_level() in ['High','Critical'] else 'warn' if current_user.risk_level() == 'Medium' else 'success' }}"><i class="fa-solid fa-radiation"></i></div>
+    </div>
+    <div class="kpi-value">{{ my_live_score }}</div>
+    <div class="kpi-label">Your Live Risk Score &mdash; {{ current_user.risk_level() }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <div class="kpi-icon info"><i class="fa-solid fa-clock-rotate-left"></i></div>
+    </div>
+    <div class="kpi-value">{{ recent_activity|length }}</div>
+    <div class="kpi-label">Recent Actions Logged</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-header">
+      <span><i class="fa-solid fa-clock-rotate-left text-accent"></i> My Recent Activity</span>
+    </div>
+    <div class="panel-body p-0">
+      {% if recent_activity %}
+      <div class="timeline" style="padding: 6px 16px;">
+        {% for log in recent_activity %}
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-content">
+            <div class="timeline-top">
+              <span class="action-chip">{{ log.action }}</span>
+            </div>
+            <div class="timeline-action">{{ log.details or 'No additional details' }}</div>
+            <div class="timeline-time">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="fa-solid fa-inbox"></i>
+        <div class="es-title">No recent activity</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span><i class="fa-solid fa-chart-line text-accent"></i> Your Risk Score Trend</span>
+    </div>
+    <div class="panel-body">
+      <div class="chart-container">
+        <canvas id="riskTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-14">
+  <a href="{{ url_for('customers.list_customers') }}" class="btn-c btn-primary-c">
+    <i class="fa-solid fa-address-book"></i> Go to Customer Records
+  </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const theme = cyberChartTheme();
+  const ctx = document.getElementById('riskTrendChart');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [{% for r in risk_history %}"{{ r.timestamp.strftime('%H:%M') }}"{% if not loop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        label: 'Risk Points Added',
+        data: [{% for r in risk_history %}{{ r.points }}{% if not loop.last %},{% endif %}{% endfor %}],
+        borderColor: theme.accent,
+        backgroundColor: theme.accent + '26',
+        tension: 0.35,
+        fill: true,
+        pointRadius: 3,
+        pointBackgroundColor: theme.accent
+      }]
+    },
+    options: Object.assign({}, cyberChartDefaults(), {
+      plugins: Object.assign({}, cyberChartDefaults().plugins, { legend: { display: false } }),
+      scales: {
+        x: { ticks: { color: theme.text, font: { size: 10 } }, grid: { color: theme.grid } },
+        y: { ticks: { color: theme.text, font: { size: 10 } }, grid: { color: theme.grid }, beginAtZero: true }
+      }
+    })
+  });
+});
+</script>
+{% endblock %}

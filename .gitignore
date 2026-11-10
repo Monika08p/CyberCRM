@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+instance/*.db
+# audit_backups/ is EVIDENCE - keep it out of git only if you store it elsewhere
+.venv/
+venv/
+*.egg-info/

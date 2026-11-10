@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}SOC Dashboard{% endblock %}
+{% block breadcrumb %}Security operations overview{% endblock %}
+{% block content %}
+
+<div class="kpi-grid mb-14">
+  <div class="kpi-card">
+    <div class="kpi-top"><div class="kpi-icon info"><i class="fa-solid fa-users"></i></div></div>
+    <div class="kpi-value">{{ total_users }}</div>
+    <div class="kpi-label">Total Users</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><div class="kpi-icon success"><i class="fa-solid fa-user-check"></i></div></div>
+    <div class="kpi-value">{{ active_users }}</div>
+    <div class="kpi-label">Active Users</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><div class="kpi-icon warn"><i class="fa-solid fa-user-slash"></i></div></div>
+    <div class="kpi-value">{{ suspended_users }}</div>
+    <div class="kpi-label">Suspended Users</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><div class="kpi-icon danger"><i class="fa-solid fa-user-secret"></i></div></div>
+    <div class="kpi-value">{{ high_critical_users }}</div>
+    <div class="kpi-label">High/Critical Risk Users</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><div class="kpi-icon warn"><i class="fa-solid fa-triangle-exclamation"></i></div></div>
+    <div class="kpi-value">{{ total_alerts }}</div>
+    <div class="kpi-label">Open Alerts</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><div class="kpi-icon danger"><i class="fa-solid fa-user-shield"></i></div></div>
+    <div class="kpi-value">{{ privileged_users }}</div>
+    <div class="kpi-label">Privileged Users</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><div class="kpi-icon danger"><i class="fa-solid fa-fire"></i></div></div>
+    <div class="kpi-value">{{ critical_incidents }}</div>
+    <div class="kpi-label">Critical Incidents</div>
+  </div>
+</div>
+
+<div class="panel mb-14">
+  <div class="panel-body" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+    {% if audit_summary.chain_status == 'VALID' %}
+      <i class="fa-solid fa-circle-check" style="font-size:22px; color: var(--success);"></i>
+      <div>
+        <div style="font-weight:700; color: var(--success);">Audit Chain Valid</div>
+        <div class="text-muted-c" style="font-size:11.5px;">{{ audit_summary.total }} events verified &middot; no tampering detected</div>
+      </div>
+    {% else %}
+      <i class="fa-solid fa-triangle-exclamation" style="font-size:22px; color: var(--critical);"></i>
+      <div>
+        <div style="font-weight:700; color: var(--critical);">Audit Chain Compromised</div>
+        <div class="text-muted-c" style="font-size:11.5px;">{{ audit_summary.tampered }} of {{ audit_summary.total }} events failed verification</div>
+      </div>
+    {% endif %}
+    <a href="{{ url_for('security.audit_integrity') }}" class="btn-c btn-sm-c btn-ghost-c" style="margin-left:auto;">View Audit Integrity</a>
+  </div>
+</div>
+
+<div class="grid-2 mb-14">
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-gauge text-accent"></i> Risk Overview</span></div>
+    <div class="panel-body">
+      <div class="risk-overview">
+        <div class="risk-gauge" style="--pct: {{ overall_risk_pct }}; --gauge-color: var(--{{ 'critical' if overall_risk_level=='Critical' else 'danger' if overall_risk_level=='High' else 'warning' if overall_risk_level=='Medium' else 'success' }});">
+          <div class="risk-gauge-inner">
+            <div class="rg-score">{{ overall_risk_score }}</div>
+            <div class="rg-label">{{ overall_risk_level|upper }} RISK</div>
+          </div>
+        </div>
+        <div class="risk-legend">
+          <div class="risk-legend-row"><span class="risk-legend-dot" style="background: var(--success);"></span> Low <span class="rl-count">{{ risk_level_counts.Low }}</span></div>
+          <div class="risk-legend-row"><span class="risk-legend-dot" style="background: var(--warning);"></span> Medium <span class="rl-count">{{ risk_level_counts.Medium }}</span></div>
+          <div class="risk-legend-row"><span class="risk-legend-dot" style="background: var(--danger);"></span> High <span class="rl-count">{{ risk_level_counts.High }}</span></div>
+          <div class="risk-legend-row"><span class="risk-legend-dot" style="background: var(--critical);"></span> Critical <span class="rl-count">{{ risk_level_counts.Critical }}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-chart-line text-accent"></i> Risk Trend (7 Days)</span></div>
+    <div class="panel-body">
+      <div class="chart-container" style="height: 200px;"><canvas id="riskTrendAdminChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2 mb-14">
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-chart-column text-accent"></i> Daily Activity (Last 7 Days)</span></div>
+    <div class="panel-body"><div class="chart-container"><canvas id="dailyActivityChart"></canvas></div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-chart-pie text-accent"></i> Alert Statistics</span></div>
+    <div class="panel-body"><div class="chart-container"><canvas id="alertStatsChart"></canvas></div></div>
+  </div>
+</div>
+
+<div class="grid-2 mb-14">
+  <div class="panel">
+    <div class="panel-header">
+      <span><i class="fa-solid fa-fire" style="color: var(--danger);"></i> Highest Risk Users</span>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>User</th><th>Score</th><th>Level</th><th>Last Activity</th><th>Actions</th></tr></thead>
+          <tbody>
+          {% for u in highest_risk_users %}
+            <tr>
+              <td>{{ u.username }}</td>
+              <td>{{ u.live_risk_score }}</td>
+              <td><span class="badge-pill badge-{{ u.risk_level()|lower }}">{{ u.risk_level() }}</span></td>
+              <td class="text-muted-c">{{ u.last_login.strftime('%b %d, %H:%M') if u.last_login else 'Never' }}</td>
+              <td>
+                <a href="{{ url_for('admin.investigate_user', user_id=u.id) }}" class="btn-c btn-sm-c btn-ghost-c" title="Investigate"><i class="fa-solid fa-magnifying-glass"></i> Investigate</a>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No employees yet</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span><i class="fa-solid fa-bell" style="color: var(--warning);"></i> Recent Alerts</span>
+      <a href="{{ url_for('admin.alerts') }}" class="btn-c btn-sm-c btn-ghost-c">View All</a>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>Level</th><th>Type</th><th>Message</th><th>When</th></tr></thead>
+          <tbody>
+          {% for a in recent_alerts %}
+            <tr>
+              <td><span class="badge-pill badge-{{ a.level|lower }}">{{ a.level }}</span></td>
+              <td>{{ a.alert_type }}</td>
+              <td class="small" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ a.message }}</td>
+              <td class="text-muted-c">{{ a.timestamp.strftime('%m-%d %H:%M') }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No active security alerts</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2 mb-14">
+  <div class="panel">
+    <div class="panel-header">
+      <span><i class="fa-solid fa-fire" style="color: var(--critical);"></i> Recent Security Incidents</span>
+      <a href="{{ url_for('security.incidents') }}" class="btn-c btn-sm-c btn-ghost-c">View All</a>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>Incident</th><th>User</th><th>Severity</th><th>Status</th></tr></thead>
+          <tbody>
+          {% for inc in recent_incidents %}
+            <tr>
+              <td>{{ inc.incident_code }}<br><span class="text-muted-c small">{{ inc.title }}</span></td>
+              <td>{{ inc.suspect.username }}</td>
+              <td><span class="badge-pill badge-{{ inc.severity|lower }}">{{ inc.severity }}</span></td>
+              <td><a href="{{ url_for('security.incident_detail', incident_id=inc.id) }}" class="btn-c btn-sm-c btn-ghost-c">{{ inc.status.replace('_',' ') }}</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No incidents</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span><i class="fa-solid fa-user-shield" style="color: var(--danger);"></i> Privileged Activity</span>
+      <a href="{{ url_for('security.privileged_activity') }}" class="btn-c btn-sm-c btn-ghost-c">View All</a>
+    </div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>Admin</th><th>Action</th><th>Risk</th></tr></thead>
+          <tbody>
+          {% for e in privileged_audit_feed %}
+            <tr>
+              <td>{{ e.actor.username if e.actor else 'system' }}</td>
+              <td><span class="action-chip">{{ e.action }}</span></td>
+              <td><span class="badge-pill badge-{{ 'critical' if e.risk_level=='CRITICAL' else 'high' if e.risk_level=='HIGH' else 'medium' if e.risk_level=='MEDIUM' else 'low' if e.risk_level=='LOW' else 'neutral' }}">{{ e.risk_level }}</span></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No privileged activity yet</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <span><i class="fa-solid fa-list-check text-accent"></i> Recent Activity Logs</span>
+    <a href="{{ url_for('admin.logs') }}" class="btn-c btn-sm-c btn-ghost-c">View All</a>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>User</th><th>Action</th><th>Details</th><th>Timestamp</th></tr></thead>
+        <tbody>
+        {% for l in recent_logs %}
+          <tr>
+            <td>{{ l.user.username }}</td>
+            <td><span class="action-chip">{{ l.action }}</span></td>
+            <td class="small">{{ l.details or '-' }}</td>
+            <td class="text-muted-c">{{ l.timestamp.strftime('%m-%d %H:%M') }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No recent activity</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel mt-14">
+  <div class="panel-header">
+    <span><i class="fa-solid fa-user-secret" style="color: var(--danger);"></i> Recent Suspicious Activity</span>
+  </div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>User</th><th>Action</th><th>Details</th><th>Timestamp</th><th></th></tr></thead>
+        <tbody>
+        {% for l in recent_suspicious %}
+          <tr>
+            <td>{{ l.user.username }}</td>
+            <td><span class="action-chip">{{ l.action }}</span></td>
+            <td class="small">{{ l.details or '-' }}</td>
+            <td class="text-muted-c">{{ l.timestamp.strftime('%m-%d %H:%M') }}</td>
+            <td><a href="{{ url_for('admin.investigate_user', user_id=l.user_id) }}" class="btn-c btn-sm-c btn-ghost-c">Investigate</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No suspicious activity recorded</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const theme = cyberChartTheme();
+  const baseOpts = cyberChartDefaults();
+
+  new Chart(document.getElementById('dailyActivityChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ daily_labels|tojson }},
+      datasets: [{
+        label: 'Activities',
+        data: {{ daily_counts|tojson }},
+        backgroundColor: theme.accent + '55',
+        borderColor: theme.accent,
+        borderWidth: 1.5,
+        borderRadius: 4,
+        maxBarThickness: 28
+      }]
+    },
+    options: Object.assign({}, baseOpts, {
+      plugins: Object.assign({}, baseOpts.plugins, { legend: { display: false } }),
+      scales: {
+        x: { ticks: { color: theme.text, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: theme.text, font: { size: 10 } }, grid: { color: theme.grid }, beginAtZero: true }
+      }
+    })
+  });
+
+  new Chart(document.getElementById('alertStatsChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Low', 'Medium', 'High', 'Critical'],
+      datasets: [{
+        data: [
+          {{ alert_stats['Low'] }},
+          {{ alert_stats['Medium'] }},
+          {{ alert_stats['High'] }},
+          {{ alert_stats['Critical'] }}
+        ],
+        backgroundColor: [theme.success, theme.warning, theme.danger, theme.critical],
+        borderWidth: 0
+      }]
+    },
+    options: Object.assign({}, baseOpts, { cutout: '68%' })
+  });
+
+  new Chart(document.getElementById('riskTrendAdminChart'), {
+    type: 'line',
+    data: {
+      labels: {{ risk_trend_labels|tojson }},
+      datasets: [{
+        label: 'Risk Points',
+        data: {{ risk_trend_values|tojson }},
+        borderColor: theme.accent2,
+        backgroundColor: theme.accent2 + '26',
+        tension: 0.35,
+        fill: true,
+        pointRadius: 3
+      }]
+    },
+    options: Object.assign({}, baseOpts, {
+      plugins: Object.assign({}, baseOpts.plugins, { legend: { display: false } }),
+      scales: {
+        x: { ticks: { color: theme.text, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: theme.text, font: { size: 10 } }, grid: { color: theme.grid }, beginAtZero: true }
+      }
+    })
+  });
+});
+</script>
+{% endblock %}

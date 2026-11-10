@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Investigate {{ user.username }} &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Investigate User{% endblock %}
+{% block breadcrumb %}Admin / Users / {{ user.username }}{% endblock %}
+{% block content %}
+
+<a href="{{ url_for('admin.users') }}" class="btn-c btn-sm-c mb-14"><i class="fa-solid fa-arrow-left"></i> Back to Users</a>
+
+{% if self_investigation %}
+<div class="panel mb-14" style="border-color: var(--critical);">
+  <div class="panel-body" style="display:flex; gap:12px; align-items:flex-start;">
+    <i class="fa-solid fa-user-lock" style="color: var(--critical); font-size:20px; margin-top:2px;"></i>
+    <div>
+      <div style="font-weight:700; color: var(--critical);">SELF-INVESTIGATION RESTRICTED</div>
+      <p class="text-muted-c" style="margin:4px 0 0; font-size:12.5px;">
+        A privileged user cannot independently investigate or resolve a security case
+        involving their own account. All response actions below are disabled for
+        {{ user.username }} — another administrator must review and act on this account.
+      </p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2 mb-14">
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-user text-accent"></i> {{ user.username }}</span></div>
+    <div class="panel-body">
+      <div class="stack-gap">
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;">
+          <span class="text-muted-c">Role</span>
+          <span class="badge-pill {{ 'badge-critical' if user.is_privileged() else 'badge-neutral' }}">
+            {% if user.is_privileged() %}<i class="fa-solid fa-user-shield"></i>{% endif %} {{ user.role }}
+          </span>
+        </div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;">
+          <span class="text-muted-c">Email</span><span>{{ user.email }}</span>
+        </div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;">
+          <span class="text-muted-c">Account Status</span>
+          {% if user.is_active_account %}<span class="badge-pill badge-success">Active</span>{% else %}<span class="badge-pill badge-critical">Suspended</span>{% endif %}
+        </div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;">
+          <span class="text-muted-c">Risk Score</span>
+          <span class="badge-pill badge-{{ user.risk_level()|lower }}">{{ user.display_risk_score() }} &middot; {{ user.risk_level() }}</span>
+        </div>
+        <div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:8px;">
+          <span class="text-muted-c">Suspicious Activity Count</span><span>{{ suspicious_count }}</span>
+        </div>
+        <div class="flex-between">
+          <span class="text-muted-c">Last Login</span><span>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-shield-halved" style="color: var(--warning);"></i> Reasons for Risk Score</span></div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>Reason</th><th>Occurrences</th><th>Points</th></tr></thead>
+          <tbody>
+          {% for r in reasons %}
+            <tr>
+              <td>{{ r.label }}</td>
+              <td>{{ r.occurrences }}</td>
+              <td><span class="badge-pill" style="color: var(--warning); background: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.25);">+{{ r.total_points }}</span></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No rule violations recorded</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if incidents %}
+<div class="panel mb-14">
+  <div class="panel-header"><span><i class="fa-solid fa-fire" style="color: var(--critical);"></i> Related Security Incidents</span></div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Incident</th><th>Severity</th><th>Status</th><th>Created</th><th></th></tr></thead>
+        <tbody>
+        {% for inc in incidents %}
+          <tr>
+            <td>{{ inc.incident_code }} &mdash; {{ inc.title }}</td>
+            <td><span class="badge-pill badge-{{ inc.severity|lower }}">{{ inc.severity }}</span></td>
+            <td><span class="badge-pill badge-neutral">{{ inc.status.replace('_',' ') }}</span></td>
+            <td class="text-muted-c">{{ inc.created_at.strftime('%m-%d %H:%M') }}</td>
+            <td><a href="{{ url_for('security.incident_detail', incident_id=inc.id) }}" class="btn-c btn-sm-c btn-ghost-c">Open</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="panel mb-14">
+  <div class="panel-header"><span><i class="fa-solid fa-gavel text-accent"></i> Security Response</span></div>
+  <div class="panel-body">
+    <div class="btn-group-c">
+      {% if user.id != current_user.id and not self_investigation %}
+      <button class="btn-c {{ 'btn-danger-c' if user.is_active_account else 'btn-success-c' }}"
+              data-toggle-active="{{ user.id }}" data-next="{{ request.path }}">
+        <i class="fa-solid fa-power-off"></i> {{ 'Suspend User' if user.is_active_account else 'Activate User' }}
+      </button>
+      <button class="btn-c" data-revoke-session="{{ user.id }}" data-next="{{ request.path }}">
+        <i class="fa-solid fa-right-from-bracket"></i> Revoke Session
+      </button>
+      {% if user.is_privileged() %}
+      <button class="btn-c btn-danger-c" data-disable-privileged="{{ user.id }}" data-next="{{ request.path }}">
+        <i class="fa-solid fa-user-shield"></i> Disable Privileged Access
+      </button>
+      {% endif %}
+      <form method="POST" action="{{ url_for('admin.change_role', user_id=user.id) }}" class="flex-row" style="gap:6px;">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <select name="new_role" class="form-control-c" style="width:130px;">
+          <option value="employee" {{ 'selected' if user.role=='employee' }}>employee</option>
+          <option value="admin" {{ 'selected' if user.role=='admin' }}>admin</option>
+        </select>
+        <button type="submit" class="btn-c"><i class="fa-solid fa-user-gear"></i> Change Role</button>
+      </form>
+      {% endif %}
+      <button class="btn-c" data-reset-score="{{ user.id }}" data-next="{{ request.path }}">
+        <i class="fa-solid fa-rotate-left"></i> Reset Risk Score
+      </button>
+    </div>
+    <p class="text-muted-c mt-14" style="font-size:12px; margin-bottom:0;">
+      Suspending a privileged (admin) account requires a second administrator's approval.
+      Revoking a session logs the user out immediately without suspending the account.
+      Resetting the risk score clears the cumulative score after investigation &mdash;
+      the account is never deleted.
+    </p>
+  </div>
+</div>
+
+<div class="grid-2 mb-14">
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-right-to-bracket text-accent"></i> Recent Login History</span></div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>Timestamp</th><th>IP Address</th></tr></thead>
+          <tbody>
+          {% for l in login_history %}
+            <tr><td>{{ l.timestamp.strftime('%Y-%m-%d %H:%M') }}</td><td class="text-muted-c">{{ l.ip_address or '-' }}</td></tr>
+          {% else %}
+            <tr><td colspan="2"><div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No login history</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span><i class="fa-solid fa-triangle-exclamation" style="color: var(--warning);"></i> Related Alerts</span></div>
+    <div class="panel-body p-0">
+      <div class="table-wrap">
+        <table class="table-c">
+          <thead><tr><th>Level</th><th>Type</th><th>Status</th><th>When</th></tr></thead>
+          <tbody>
+          {% for a in alerts %}
+            <tr>
+              <td><span class="badge-pill badge-{{ a.level|lower }}">{{ a.level }}</span></td>
+              <td>{{ a.alert_type }}</td>
+              <td>{% if a.resolved %}<span class="badge-pill badge-success">Resolved</span>{% else %}<span class="badge-pill badge-neutral">Open</span>{% endif %}</td>
+              <td class="text-muted-c">{{ a.timestamp.strftime('%m-%d %H:%M') }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No alerts for this user</div></div></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header"><span><i class="fa-solid fa-list-check text-accent"></i> Recent Activity</span></div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Timestamp</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
+        <tbody>
+        {% for l in recent_logs %}
+          <tr>
+            <td class="text-muted-c">{{ l.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td><span class="action-chip">{{ l.action }}</span></td>
+            <td class="text-muted-c small">{{ l.target_type or '-' }}{% if l.target_id %} #{{ l.target_id }}{% endif %}</td>
+            <td class="small">{{ l.details or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No recent activity</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

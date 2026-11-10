@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Privileged Activity &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Privileged Activity{% endblock %}
+{% block breadcrumb %}Security Operations / Privileged Activity{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-user-shield text-accent"></i> Privileged Activity</h2>
+</div>
+<p class="text-muted-c" style="margin-top:-8px; margin-bottom:16px; font-size:12.5px; max-width:760px;">
+  "Privileges determine what a user is allowed to do, but privileges do not make the user's
+  activity invisible to security monitoring." Every security-sensitive action taken by an
+  administrator account is recorded here via the tamper-evident audit chain.
+</p>
+
+<div class="panel mb-14">
+  <div class="panel-header"><span><i class="fa-solid fa-link text-accent"></i> Audit-Chain Events (Role changes, account actions, alert/incident actions, approvals)</span></div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Admin</th><th>Action</th><th>Details</th><th>Risk</th><th>Timestamp</th></tr></thead>
+        <tbody>
+        {% for e in audit_events %}
+          <tr>
+            <td>{{ e.actor.username if e.actor else 'system' }}</td>
+            <td><span class="action-chip">{{ e.action }}</span></td>
+            <td class="small">{{ e.details or '-' }}</td>
+            <td><span class="badge-pill badge-{{ 'critical' if e.risk_level=='CRITICAL' else 'high' if e.risk_level=='HIGH' else 'medium' if e.risk_level=='MEDIUM' else 'low' if e.risk_level=='LOW' else 'neutral' }}">{{ e.risk_level }}</span></td>
+            <td class="text-muted-c">{{ e.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No privileged audit events recorded yet</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-header"><span><i class="fa-solid fa-list-check text-accent"></i> Routine Admin Activity Log</span></div>
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Admin</th><th>Action</th><th>Details</th><th>Timestamp</th></tr></thead>
+        <tbody>
+        {% for l in activity_logs %}
+          <tr>
+            <td>{{ l.user.username }}</td>
+            <td><span class="action-chip">{{ l.action }}</span></td>
+            <td class="small">{{ l.details or '-' }}</td>
+            <td class="text-muted-c">{{ l.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-inbox"></i><div class="es-title">No activity recorded</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

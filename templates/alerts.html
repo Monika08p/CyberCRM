@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Alerts &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Security Alerts{% endblock %}
+{% block breadcrumb %}Admin / Alerts{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-triangle-exclamation" style="color: var(--warning);"></i> Security Alerts</h2>
+</div>
+
+<div class="panel mb-14">
+  <div class="panel-body">
+    <form method="GET" class="flex-row" style="flex-wrap:wrap;">
+      <div class="btn-group-c">
+        <a href="{{ url_for('admin.alerts') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if not level_filter }}">All Severities</a>
+        <a href="{{ url_for('admin.alerts', level='Low') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if level_filter=='Low' }}">Low</a>
+        <a href="{{ url_for('admin.alerts', level='Medium') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if level_filter=='Medium' }}">Medium</a>
+        <a href="{{ url_for('admin.alerts', level='High') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if level_filter=='High' }}">High</a>
+        <a href="{{ url_for('admin.alerts', level='Critical') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if level_filter=='Critical' }}">Critical</a>
+      </div>
+      <select name="status" class="form-control-c" onchange="this.form.submit()" style="width:150px;">
+        <option value="">All Statuses</option>
+        <option value="open" {{ 'selected' if status_filter=='open' }}>Unresolved</option>
+        <option value="resolved" {{ 'selected' if status_filter=='resolved' }}>Resolved</option>
+      </select>
+      <select name="user_id" class="form-control-c" onchange="this.form.submit()" style="width:170px;">
+        <option value="">All Users</option>
+        {% for u in users %}
+          <option value="{{ u.id }}" {{ 'selected' if user_filter == u.id }}>{{ u.username }}</option>
+        {% endfor %}
+      </select>
+      {% if level_filter %}<input type="hidden" name="level" value="{{ level_filter }}">{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c">
+        <thead><tr><th>Severity</th><th>Type</th><th>User</th><th>Description</th><th>Timestamp</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+        {% for a in alerts %}
+          <tr id="alert-row-{{ a.id }}">
+            <td><span class="badge-pill badge-{{ a.level|lower }}"><i class="fa-solid fa-circle-exclamation"></i> {{ a.level }}</span></td>
+            <td>{{ a.alert_type }}</td>
+            <td>{{ a.user.username }}</td>
+            <td class="small">{{ a.message }}</td>
+            <td class="text-muted-c">{{ a.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td data-alert-status>
+              {% if a.resolved %}<span class="badge-pill badge-success">Resolved</span>{% else %}<span class="badge-pill badge-neutral">Open</span>{% endif %}
+            </td>
+            <td>
+              <div class="btn-group-c">
+                {% if not a.resolved %}
+                <button class="btn-c btn-sm-c btn-success-c" data-resolve-alert="{{ a.id }}"><i class="fa-solid fa-check"></i> Resolve</button>
+                {% endif %}
+                <a href="{{ url_for('admin.investigate_user', user_id=a.user_id) }}" class="btn-c btn-sm-c btn-ghost-c"><i class="fa-solid fa-magnifying-glass"></i> Investigate</a>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-shield-check"></i><div class="es-title">No active security alerts</div></div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

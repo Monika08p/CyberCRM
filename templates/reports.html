@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ report_type }} Report &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block breadcrumb %}Admin / {{ report_type }} Report{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-file-lines text-accent"></i> {{ report_type }} Report</h2>
+  <div class="btn-group-c">
+    <a href="{{ url_for('reports.daily_report') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if report_type=='Daily' }}">Daily</a>
+    <a href="{{ url_for('reports.weekly_report') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if report_type=='Weekly' }}">Weekly</a>
+    <a href="{{ url_for('reports.risk_report') }}" class="btn-c btn-sm-c {{ 'btn-primary-c' if report_type=='Risk' }}">Risk</a>
+    {% if report_type == 'Daily' %}
+      <a href="{{ url_for('reports.export_daily_report') }}" class="btn-c btn-sm-c"><i class="fa-solid fa-file-export"></i> Export CSV</a>
+    {% elif report_type == 'Weekly' %}
+      <a href="{{ url_for('reports.export_weekly_report') }}" class="btn-c btn-sm-c"><i class="fa-solid fa-file-export"></i> Export CSV</a>
+    {% elif report_type == 'Risk' %}
+      <a href="{{ url_for('reports.export_risk_report') }}" class="btn-c btn-sm-c"><i class="fa-solid fa-file-export"></i> Export CSV</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+
+  {% if report_type in ['Daily', 'Weekly'] %}
+    <table class="table-c">
+      <thead>
+        <tr>
+          <th>User</th>
+          {% for col in action_columns %}<th>{{ col }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in summary %}
+        <tr>
+          <td>{{ row['user'] }}</td>
+          {% for col in action_columns %}<td>{{ row[col] }}</td>{% endfor %}
+        </tr>
+      {% else %}
+        <tr><td colspan="10"><div class="empty-state"><i class="fa-solid fa-file-lines"></i><div class="es-title">No activity in this period yet</div></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+  {% elif report_type == 'Risk' %}
+    <table class="table-c">
+      <thead>
+        <tr><th>User</th><th>Live Risk Score</th><th>Level</th><th>Suspicious</th><th>Account Status</th><th>Open Alerts</th><th>Last Login</th></tr>
+      </thead>
+      <tbody>
+      {% for row in risk_rows %}
+        <tr>
+          <td>{{ row.username }}</td>
+          <td>{{ row.live_risk_score }}</td>
+          <td><span class="badge-pill badge-{{ row.risk_level|lower }}">{{ row.risk_level }}</span></td>
+          <td>{% if row.is_suspicious %}<span class="badge-pill badge-critical">Yes</span>{% else %}<span class="badge-pill badge-success">No</span>{% endif %}</td>
+          <td>{% if row.is_active_account %}<span class="badge-pill badge-success">Active</span>{% else %}<span class="badge-pill badge-critical">Suspended</span>{% endif %}</td>
+          <td>{{ row.open_alerts }}</td>
+          <td class="text-muted-c">{{ row.last_login.strftime('%Y-%m-%d %H:%M') if row.last_login else 'Never' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7"><div class="empty-state"><i class="fa-solid fa-users"></i><div class="es-title">No employees found</div></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

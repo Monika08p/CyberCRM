@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Customers &mdash; {{ app_name }}{% endblock %}
+{% block page_title %}Customers{% endblock %}
+{% block breadcrumb %}CRM &mdash; Customer records{% endblock %}
+{% block content %}
+
+<div class="page-header-row">
+  <h2><i class="fa-solid fa-address-book text-accent"></i> Customer Records</h2>
+  <div class="btn-group-c">
+    <form method="GET" class="flex-row" style="gap:0;">
+      <input type="text" name="q" value="{{ search }}" class="form-control-c" placeholder="Search customers..." style="width:200px; border-radius: var(--radius-sm) 0 0 var(--radius-sm);">
+      <button class="btn-c" type="submit" style="border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-left:none;"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </form>
+    <button id="btnAddCustomer" class="btn-c btn-primary-c" data-modal-open="addCustomerModal"><i class="fa-solid fa-plus"></i> Add Customer</button>
+    <a href="{{ url_for('customers.export_customers') }}" class="btn-c"><i class="fa-solid fa-file-export"></i> Export CSV</a>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body p-0">
+    <div class="table-wrap">
+      <table class="table-c" data-sortable>
+        <thead>
+          <tr>
+            <th data-sort-key>Name</th>
+            <th data-sort-key>Company</th>
+            <th data-sort-key>Email</th>
+            <th data-sort-key>Phone</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in customers %}
+          <tr>
+            <td>{{ c.name }}</td>
+            <td>{{ c.company or '-' }}</td>
+            <td>{{ c.email or '-' }}</td>
+            <td>{{ c.phone or '-' }}</td>
+            <td>
+              <div class="btn-group-c">
+                <a href="{{ url_for('customers.view_customer', customer_id=c.id) }}" class="btn-c btn-sm-c btn-ghost-c" title="View"><i class="fa-solid fa-eye"></i></a>
+                <button class="btn-c btn-sm-c btn-ghost-c" title="Edit"
+                        data-edit-customer='{{ {"id": c.id, "name": c.name, "company": c.company, "email": c.email, "phone": c.phone, "address": c.address, "notes": c.notes}|tojson|safe }}'>
+                  <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="btn-c btn-sm-c btn-danger-c" title="Delete"
+                        data-delete-customer="{{ c.id }}" data-customer-name="{{ c.name }}">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5"><div class="empty-state"><i class="fa-solid fa-address-book"></i><div class="es-title">No customer records found</div></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add Customer Modal -->
+<div class="modal-backdrop-c" id="addCustomerModal">
+  <div class="modal-c">
+    <div class="modal-header-c">
+      <h3><i class="fa-solid fa-user-plus text-accent"></i> Add Customer</h3>
+      <button class="icon-btn" data-modal-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="addCustomerForm" action="{{ url_for('customers.new_customer') }}" method="POST">
+      <div class="modal-body-c">
+        {% include "_customer_fields.html" %}
+      </div>
+      <div class="modal-footer-c">
+        <button type="button" class="btn-c" data-modal-close>Cancel</button>
+        <button type="submit" class="btn-c btn-primary-c"><i class="fa-solid fa-floppy-disk"></i> Save Customer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Customer Modal -->
+<div class="modal-backdrop-c" id="editCustomerModal">
+  <div class="modal-c">
+    <div class="modal-header-c">
+      <h3><i class="fa-solid fa-user-pen text-accent"></i> Edit Customer</h3>
+      <button class="icon-btn" data-modal-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="editCustomerForm" method="POST">
+      <div class="modal-body-c">
+        {% include "_customer_fields.html" %}
+      </div>
+      <div class="modal-footer-c">
+        <button type="button" class="btn-c" data-modal-close>Cancel</button>
+        <button type="submit" class="btn-c btn-primary-c"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-backdrop-c" id="deleteCustomerModal">
+  <div class="modal-c modal-sm">
+    <div class="modal-header-c">
+      <h3><i class="fa-solid fa-triangle-exclamation" style="color: var(--danger);"></i> Delete Customer</h3>
+      <button class="icon-btn" data-modal-close><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="deleteCustomerForm" method="POST">
+      <div class="modal-body-c">
+        <p>Are you sure you want to delete <strong id="deleteCustomerName"></strong>? This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer-c">
+        <button type="button" class="btn-c" data-modal-close>Cancel</button>
+        <button type="submit" class="btn-c btn-danger-c"><i class="fa-solid fa-trash"></i> Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/customers.js') }}"></script>
+{% endblock %}
